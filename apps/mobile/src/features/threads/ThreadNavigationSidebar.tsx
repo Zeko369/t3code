@@ -12,6 +12,7 @@ import type { MenuAction } from "@react-native-menu/menu";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import type { EnvironmentId } from "@t3tools/contracts";
+import { DEFAULT_SIDEBAR_THREAD_LIST_SORT_ORDER } from "@t3tools/contracts";
 import { sortPinnedThreadsByOrderKey } from "@t3tools/client-runtime/state/thread-sort";
 import type { ChangeRequestSettleSource } from "@t3tools/client-runtime/state/thread-settled";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -43,10 +44,12 @@ import { useAppearancePreferences } from "../settings/appearance/AppearancePrefe
 import {
   hasCustomHomeListOptions,
   PROJECT_SORT_OPTIONS,
+  THREAD_LIST_SORT_OPTIONS,
   THREAD_SORT_OPTIONS,
   useHomeListOptions,
 } from "../home/home-list-options";
 import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
+import { useThreadListSortOrder } from "./use-thread-list-sort-order";
 import {
   buildHomeListLayout,
   DEFAULT_GROUP_DISPLAY_STATE,
@@ -218,6 +221,7 @@ function ThreadNavigationSidebarPane(
     regenerateThreadTitle,
   } = useThreadListActions();
   const threadListV2Enabled = useThreadListV2Enabled();
+  const { threadListSortOrder, setThreadListSortOrder } = useThreadListSortOrder();
   const preferencesResult = useAtomValue(mobilePreferencesAtom);
   const autoSettleOnMerge =
     !AsyncResult.isSuccess(preferencesResult) ||
@@ -564,6 +568,7 @@ function ThreadNavigationSidebarPane(
       settlementEnvironmentIds,
       snoozeEnvironmentIds,
       settledLimit: settledVisibleCount,
+      threadSortOrder: threadListSortOrder,
       now: `${nowMinute}:00.000Z`,
       snoozeNow: new Date().toISOString(),
       snoozedShelfExpanded,
@@ -584,6 +589,7 @@ function ThreadNavigationSidebarPane(
     settledVisibleCount,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
+    threadListSortOrder,
     threadListV2Enabled,
     threads,
     selectedProjectScope,
@@ -695,11 +701,22 @@ function ThreadNavigationSidebarPane(
               ],
             },
           ] satisfies MenuAction[])),
-      // v2 lays the list out in fixed creation order — offering sort/group
-      // controls it silently ignores would be a lie. Environment still
-      // scopes the v2 partition, so it stays.
+      // v2 has no project groups and one flat ordering — offering the
+      // legacy grouped list's sort/group controls it silently ignores would
+      // be a lie. Environment still scopes the v2 partition, so it stays,
+      // and v2 brings its own Sort threads submenu.
       ...(threadListV2Enabled
-        ? []
+        ? ([
+            {
+              id: "thread-list-sort",
+              title: "Sort threads",
+              subactions: THREAD_LIST_SORT_OPTIONS.map((option) => ({
+                id: `thread-list-sort:${option.value}`,
+                title: option.label,
+                state: threadListSortOrder === option.value ? ("on" as const) : ("off" as const),
+              })),
+            },
+          ] satisfies MenuAction[])
         : ([
             {
               id: "project-sort",
@@ -721,7 +738,14 @@ function ThreadNavigationSidebarPane(
             },
           ] satisfies MenuAction[])),
     ],
-    [environments, options, projectFilterOptions, selectedProjectKey, threadListV2Enabled],
+    [
+      environments,
+      options,
+      projectFilterOptions,
+      selectedProjectKey,
+      threadListSortOrder,
+      threadListV2Enabled,
+    ],
   );
   const handleListMenuAction = useCallback(
     ({ nativeEvent }: { readonly nativeEvent: { readonly event: string } }) => {
@@ -762,12 +786,20 @@ function ThreadNavigationSidebarPane(
         setThreadSortOrder(threadSort.value);
         return;
       }
+      const threadListSort = THREAD_LIST_SORT_OPTIONS.find(
+        (option) => `thread-list-sort:${option.value}` === event,
+      );
+      if (threadListSort) {
+        setThreadListSortOrder(threadListSort.value);
+        return;
+      }
     },
     [
       environments,
       projectFilterOptions,
       setProjectSortOrder,
       setSelectedEnvironmentId,
+      setThreadListSortOrder,
       setThreadSortOrder,
     ],
   );
@@ -1157,10 +1189,13 @@ function ThreadNavigationSidebarPane(
       updateGroupDisplay,
     ],
   );
-  // v2 ignores the sort/group options, so only the environment filter can
-  // light the "customized" state while the beta is on.
+  // v2 ignores the grouped list's sort/group options, so only the
+  // environment filter and its own thread order can light the "customized"
+  // state while the beta is on.
   const filterCustomized = threadListV2Enabled
-    ? options.selectedEnvironmentId !== null || selectedProjectKey !== null
+    ? options.selectedEnvironmentId !== null ||
+      selectedProjectKey !== null ||
+      threadListSortOrder !== DEFAULT_SIDEBAR_THREAD_LIST_SORT_ORDER
     : hasCustomHomeListOptions({ ...options, selectedProjectKey });
   const filterIcon = filterCustomized
     ? "line.3.horizontal.decrease.circle.fill"
@@ -1179,6 +1214,8 @@ function ThreadNavigationSidebarPane(
         onProjectSortOrderChange: setProjectSortOrder,
         onThreadSortOrderChange: setThreadSortOrder,
         listOrganization: !threadListV2Enabled,
+        threadListSortOrder,
+        onThreadListSortOrderChange: setThreadListSortOrder,
       }),
     [
       environments,
@@ -1187,7 +1224,9 @@ function ThreadNavigationSidebarPane(
       selectedProjectKey,
       setProjectSortOrder,
       setSelectedEnvironmentId,
+      setThreadListSortOrder,
       setThreadSortOrder,
+      threadListSortOrder,
       threadListV2Enabled,
     ],
   );

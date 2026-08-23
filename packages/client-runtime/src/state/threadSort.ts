@@ -1,7 +1,12 @@
 import type { ProjectId } from "@t3tools/contracts";
-import type { SidebarProjectSortOrder, SidebarThreadSortOrder } from "@t3tools/contracts/settings";
+import type {
+  SidebarProjectSortOrder,
+  SidebarThreadListSortOrder,
+  SidebarThreadSortOrder,
+} from "@t3tools/contracts/settings";
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
+import { threadLastActivityAt, type ThreadActivityTimestamps } from "./threadSettled.ts";
 
 export interface ThreadSortInput {
   readonly createdAt: string;
@@ -100,6 +105,54 @@ export function getLatestThreadForProject<
       threads.filter((thread) => thread.projectId === projectId && thread.archivedAt === null),
       sortOrder,
     )[0] ?? null
+  );
+}
+
+// ── Flat thread list (default sidebar / mobile Thread List v2) ─────────
+
+/** What ordering the flat list needs from a row. Creation time is the only
+    required field: a thread with no activity yet still has to sort. */
+export interface ThreadListSortInput extends ThreadActivityTimestamps {
+  readonly id: string;
+  readonly createdAt: string;
+}
+
+/**
+ * Sort key for one row. `created_at` is the static order the list ships
+ * with — a row holds its slot from open until it settles. `last_activity`
+ * is "last touched": the newest of the user's last message and the latest
+ * turn's requested/started/completed stamps (the same candidates the
+ * settled shelf sorts by), falling back to creation time for threads
+ * nothing has happened in yet.
+ */
+export function getThreadListSortTimestamp(
+  thread: ThreadListSortInput,
+  sortOrder: SidebarThreadListSortOrder,
+): number {
+  // Epoch, not -Infinity, for a malformed stamp: the comparator subtracts
+  // two of these, and -Infinity minus itself is NaN — one corrupt row would
+  // poison the whole ordering instead of just sinking to the bottom.
+  const createdAtMs = toSortableTimestamp(thread.createdAt) ?? 0;
+  if (sortOrder === "created_at") return createdAtMs;
+  const lastActivityMs = toSortableTimestamp(threadLastActivityAt(thread) ?? undefined);
+  return lastActivityMs === null ? createdAtMs : Math.max(lastActivityMs, createdAtMs);
+}
+
+/**
+ * Newest first, id-tiebroken so two clients holding the same rows render
+ * the same order. Shared by web and mobile — the flat list must not
+ * diverge between surfaces.
+ */
+export function sortThreadListForSidebar<T extends ThreadListSortInput>(
+  threads: readonly T[],
+  sortOrder: SidebarThreadListSortOrder,
+): T[] {
+  // .sort() on a copy, not .toSorted(): Hermes (mobile) doesn't ship the
+  // ES2023 change-by-copy array methods.
+  return [...threads].sort(
+    (left, right) =>
+      getThreadListSortTimestamp(right, sortOrder) - getThreadListSortTimestamp(left, sortOrder) ||
+      left.id.localeCompare(right.id),
   );
 }
 

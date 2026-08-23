@@ -71,9 +71,24 @@ export function changeRequestAutoSettles(
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
-export function threadLastActivityAt(
-  shell: Pick<OrchestrationThreadShell, "latestUserMessageAt" | "latestTurn">,
-): string | null {
+/**
+ * Structural stand-in for the shell fields the last-activity rules read.
+ * Looser than `Pick<OrchestrationThreadShell, …>` so callers holding a
+ * partial row (sidebar sort inputs, tests) can ask the same question.
+ */
+export interface ThreadActivityTimestamps {
+  readonly latestUserMessageAt?: string | null | undefined;
+  readonly latestTurn?:
+    | {
+        readonly requestedAt?: string | null | undefined;
+        readonly startedAt?: string | null | undefined;
+        readonly completedAt?: string | null | undefined;
+      }
+    | null
+    | undefined;
+}
+
+export function threadLastActivityAt(shell: ThreadActivityTimestamps): string | null {
   const candidates = [
     shell.latestUserMessageAt,
     shell.latestTurn?.requestedAt,

@@ -1,7 +1,15 @@
-import type { EnvironmentId, SidebarThreadSortOrder } from "@t3tools/contracts";
+import type {
+  EnvironmentId,
+  SidebarThreadListSortOrder,
+  SidebarThreadSortOrder,
+} from "@t3tools/contracts";
 
 import type { HomeProjectSortOrder } from "./homeThreadList";
-import { PROJECT_SORT_OPTIONS, THREAD_SORT_OPTIONS } from "./home-list-options";
+import {
+  PROJECT_SORT_OPTIONS,
+  THREAD_LIST_SORT_OPTIONS,
+  THREAD_SORT_OPTIONS,
+} from "./home-list-options";
 
 export interface HomeListFilterMenuEnvironment {
   readonly environmentId: EnvironmentId;
@@ -43,10 +51,13 @@ export function buildHomeListFilterMenu(props: {
   readonly onProjectChange: (projectKey: string | null) => void;
   readonly onProjectSortOrderChange: (sortOrder: HomeProjectSortOrder) => void;
   readonly onThreadSortOrderChange: (sortOrder: SidebarThreadSortOrder) => void;
-  /** False hides the sort/group submenus. Thread List v2 uses a fixed
-      creation-order layout, so offering those controls while it silently
-      ignores them would be a lie; the environment filter still applies. */
+  /** False hides the legacy grouped list's sort/group submenus. Thread List
+      v2 ignores them (it has no project groups and one flat ordering), so
+      offering them there would be a lie; the environment filter still
+      applies, and v2 gets its own Sort threads submenu below. */
   readonly listOrganization?: boolean;
+  readonly threadListSortOrder?: SidebarThreadListSortOrder;
+  readonly onThreadListSortOrderChange?: (sortOrder: SidebarThreadListSortOrder) => void;
 }): HomeListFilterMenu {
   const items: Array<HomeListFilterMenuAction | HomeListFilterMenuSubmenu> = [];
 
@@ -92,6 +103,20 @@ export function buildHomeListFilterMenu(props: {
           onPress: () => props.onProjectChange(project.key),
         })),
       ],
+    });
+  }
+
+  const onThreadListSortOrderChange = props.onThreadListSortOrderChange;
+  if (props.listOrganization === false && onThreadListSortOrderChange !== undefined) {
+    items.push({
+      type: "submenu",
+      title: "Sort threads",
+      items: THREAD_LIST_SORT_OPTIONS.map((option) => ({
+        type: "action",
+        title: option.label,
+        state: props.threadListSortOrder === option.value ? "on" : "off",
+        onPress: () => onThreadListSortOrderChange(option.value),
+      })),
     });
   }
 

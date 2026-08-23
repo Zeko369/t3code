@@ -254,15 +254,57 @@ describe("resolveThreadListV2SnoozeGateExpiryMs", () => {
 describe("sortThreadsForListV2", () => {
   it("orders by creation time, newest first, ignoring activity", () => {
     const sorted = sortThreadsForListV2([
-      { id: "oldest", createdAt: "2026-06-01T08:00:00.000Z" },
+      {
+        id: "oldest",
+        createdAt: "2026-06-01T08:00:00.000Z",
+        latestUserMessageAt: "2026-06-01T23:00:00.000Z",
+      },
       { id: "newest", createdAt: "2026-06-01T12:00:00.000Z" },
       { id: "middle", createdAt: "2026-06-01T10:00:00.000Z" },
     ]);
     expect(sorted.map((thread) => thread.id)).toEqual(["newest", "middle", "oldest"]);
   });
+
+  it("orders by last activity when the device opts in", () => {
+    const sorted = sortThreadsForListV2(
+      [
+        { id: "newest", createdAt: "2026-06-01T12:00:00.000Z" },
+        {
+          id: "oldest",
+          createdAt: "2026-06-01T08:00:00.000Z",
+          latestTurn: { completedAt: "2026-06-01T23:00:00.000Z" },
+        },
+      ],
+      "last_activity",
+    );
+    expect(sorted.map((thread) => thread.id)).toEqual(["oldest", "newest"]);
+  });
 });
 
 describe("buildThreadListV2Items", () => {
+  it("orders the active block by last activity when the device opts in", () => {
+    const opened = makeThread({
+      id: ThreadId.make("opened-last"),
+      title: "Opened last",
+      createdAt: "2026-06-01T12:00:00.000Z",
+    });
+    const touched = makeThread({
+      id: ThreadId.make("touched-last"),
+      title: "Touched last",
+      createdAt: "2026-06-01T08:00:00.000Z",
+      latestUserMessageAt: "2026-06-01T14:00:00.000Z",
+    });
+    const layout = buildThreadListV2Items({
+      threads: [opened, touched],
+      environmentId: null,
+      searchQuery: "",
+      threadSortOrder: "last_activity",
+      now: NOW,
+    });
+
+    expect(layout.items.map((item) => item.thread.id)).toEqual(["touched-last", "opened-last"]);
+  });
+
   it("keeps a merged thread active when auto-settle on merge is off", () => {
     const merged = makeThread({ id: ThreadId.make("merged"), title: "Merged" });
     const layout = buildThreadListV2Items({
