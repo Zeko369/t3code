@@ -31,10 +31,11 @@ import {
   scopedThreadKey,
 } from "@t3tools/client-runtime/environment";
 import type { ScopedThreadRef, ThreadId } from "@t3tools/contracts";
-import type { TimestampFormat } from "@t3tools/contracts/settings";
+import type { SidebarThreadListSortOrder, TimestampFormat } from "@t3tools/contracts/settings";
 import {
   AlarmClockIcon,
   AlarmClockOffIcon,
+  ArrowUpDownIcon,
   CheckIcon,
   ChevronDownIcon,
   CircleAlertIcon,
@@ -101,7 +102,7 @@ import { useThreadActions } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { useClientSettings } from "../hooks/useSettings";
+import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -194,6 +195,13 @@ const SETTLED_TAIL_PAGE_COUNT = 25;
 // Keep the v2 key so existing preferences survive the v2-to-default rename.
 const SETTLED_SHELF_EXPANDED_KEY = "t3code:sidebar-v2:settled-expanded";
 const SNOOZED_SHELF_EXPANDED_KEY = "t3code:sidebar-v2:snoozed-expanded";
+
+// Order of the active block. "Opened" is the user-facing name for creation
+// order: a row lands where the thread was opened and stays there.
+const THREAD_LIST_SORT_LABELS: Record<SidebarThreadListSortOrder, string> = {
+  created_at: "When opened",
+  last_activity: "Last activity",
+};
 
 function compactSidebarTimeLabel(label: string): string {
   if (label === "just now") return "now";
@@ -1719,6 +1727,8 @@ export default function Sidebar() {
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const sidebarProjectSortOrder = useClientSettings((s) => s.sidebarProjectSortOrder);
+  const threadListSortOrder = useClientSettings((s) => s.sidebarThreadListSortOrder);
+  const updateSettings = useUpdateClientSettings();
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const {
@@ -2087,7 +2097,7 @@ export default function Sidebar() {
           )
           .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
       ),
-      activeThreads: sortThreadsForSidebar(active),
+      activeThreads: sortThreadsForSidebar(active, threadListSortOrder),
       // Soonest wake first: "what comes back next" is the shelf's question.
       snoozedThreads: snoozed.toSorted(
         (left, right) =>
@@ -2105,6 +2115,7 @@ export default function Sidebar() {
     scopedProjectKeys,
     serverConfigs,
     snoozeWakeTick,
+    threadListSortOrder,
     threads,
   ]);
 
@@ -3552,6 +3563,50 @@ export default function Sidebar() {
                           </MenuRadioItem>
                         );
                       })}
+                    </MenuRadioGroup>
+                  </MenuPopup>
+                </Menu>
+                <Menu>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <MenuTrigger
+                          render={
+                            <SidebarMenuButton
+                              size="icon"
+                              className="shrink-0 focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+                              type="button"
+                              aria-label="Sort threads"
+                            />
+                          }
+                        />
+                      }
+                    >
+                      <ArrowUpDownIcon />
+                    </TooltipTrigger>
+                    <TooltipPopup side="right">Sort threads</TooltipPopup>
+                  </Tooltip>
+                  <MenuPopup align="end" className="min-w-44">
+                    <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
+                      Sort threads
+                    </div>
+                    <MenuRadioGroup
+                      value={threadListSortOrder}
+                      onValueChange={(value) =>
+                        updateSettings({
+                          sidebarThreadListSortOrder: value as SidebarThreadListSortOrder,
+                        })
+                      }
+                    >
+                      {(
+                        Object.entries(THREAD_LIST_SORT_LABELS) as Array<
+                          [SidebarThreadListSortOrder, string]
+                        >
+                      ).map(([value, label]) => (
+                        <MenuRadioItem key={value} value={value} closeOnClick className="text-sm">
+                          {label}
+                        </MenuRadioItem>
+                      ))}
                     </MenuRadioGroup>
                   </MenuPopup>
                 </Menu>

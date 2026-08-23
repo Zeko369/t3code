@@ -12,8 +12,13 @@ import type {
 } from "@t3tools/client-runtime/state/thread-settled";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { threadSearchMatchKey } from "@t3tools/client-runtime/state/thread-search";
-import { sortPinnedThreadsByOrderKey } from "@t3tools/client-runtime/state/thread-sort";
-import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import {
+  sortPinnedThreadsByOrderKey,
+  sortThreadListForSidebar,
+} from "@t3tools/client-runtime/state/thread-sort";
+import type { ThreadListSortInput } from "@t3tools/client-runtime/state/thread-sort";
+import type { EnvironmentId, ProjectId, SidebarThreadListSortOrder } from "@t3tools/contracts";
+import { DEFAULT_SIDEBAR_THREAD_LIST_SORT_ORDER } from "@t3tools/contracts";
 
 import type { PendingNewTask } from "../../state/use-pending-new-tasks";
 
@@ -162,21 +167,17 @@ function firstValidTimestampMs(...candidates: ReadonlyArray<string | null | unde
 }
 
 /**
- * v2 sort: static creation order, newest thread on top. Activity NEVER
- * reorders the list — a row holds its position from open until settled, so
- * the screen only moves at lifecycle transitions. Mirrors web's
- * sortThreadsForSidebarV2.
+ * v2 sort. The shipped order is static creation order, newest thread on
+ * top: activity never reorders the list, so a row holds its position from
+ * open until settled and the screen only moves at lifecycle transitions.
+ * `last_activity` is the opt-in recency order. Shared with web through
+ * client-runtime so the two surfaces cannot drift.
  */
-export function sortThreadsForListV2<T extends { readonly id: string; readonly createdAt: string }>(
+export function sortThreadsForListV2<T extends ThreadListSortInput>(
   threads: readonly T[],
+  sortOrder: SidebarThreadListSortOrder = DEFAULT_SIDEBAR_THREAD_LIST_SORT_ORDER,
 ): T[] {
-  // .sort() on a copy, not .toSorted(): Hermes doesn't ship the ES2023
-  // change-by-copy array methods.
-  return [...threads].sort(
-    (left, right) =>
-      parseTimestampMs(right.createdAt) - parseTimestampMs(left.createdAt) ||
-      left.id.localeCompare(right.id),
-  );
+  return sortThreadListForSidebar(threads, sortOrder);
 }
 
 export interface ThreadListV2Item {
@@ -332,6 +333,8 @@ export function buildThreadListV2Items(input: {
   readonly snoozeEnvironmentIds?: ReadonlySet<EnvironmentId>;
   readonly autoSettleAfterDays?: number;
   readonly autoSettleOnMerge?: boolean;
+  /** Ordering of the active block. Defaults to creation order. */
+  readonly threadSortOrder?: SidebarThreadListSortOrder;
   /** Max settled rows to render; the rest are counted, not built. */
   readonly settledLimit?: number;
   /** Injectable for tests; defaults to now. */
@@ -422,7 +425,7 @@ export function buildThreadListV2Items(input: {
     }
   }
 
-  const orderedActive = sortThreadsForListV2(active);
+  const orderedActive = sortThreadsForListV2(active, input.threadSortOrder);
   const orderedSnoozed = [...snoozed].sort(
     (left, right) =>
       parseTimestampMs(left.snoozedUntil ?? "") - parseTimestampMs(right.snoozedUntil ?? ""),

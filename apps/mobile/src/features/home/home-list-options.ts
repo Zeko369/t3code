@@ -1,6 +1,7 @@
 import type {
   EnvironmentId,
   SidebarProjectGroupingMode,
+  SidebarThreadListSortOrder,
   SidebarThreadSortOrder,
 } from "@t3tools/contracts";
 import {
@@ -45,6 +46,16 @@ export const THREAD_SORT_OPTIONS: ReadonlyArray<{
 }> = [
   { value: "updated_at", label: "Last user message" },
   { value: "created_at", label: "Created at" },
+];
+
+/** Thread List v2's own ordering. "Opened" is the user-facing name for
+    creation order: a row lands where the thread was opened and stays. */
+export const THREAD_LIST_SORT_OPTIONS: ReadonlyArray<{
+  readonly value: SidebarThreadListSortOrder;
+  readonly label: string;
+}> = [
+  { value: "created_at", label: "When opened" },
+  { value: "last_activity", label: "Last activity" },
 ];
 
 function defaultHomeListOptions(): HomeListOptions {

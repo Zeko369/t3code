@@ -5,7 +5,7 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import type { SidebarProjectGroupingMode } from "@t3tools/contracts";
+import type { SidebarProjectGroupingMode, SidebarThreadListSortOrder } from "@t3tools/contracts";
 import { MOBILE_THEME_IDS, type MobileThemeId, type MobileThemeMode } from "../lib/mobileTheme";
 
 import * as MobileDatabase from "./mobile-database";
@@ -42,6 +42,12 @@ export interface Preferences {
   readonly legacyThreadListEnabled?: boolean;
   /** Device-local counterpart of desktop's `planModeEnabled` legacy flag. */
   readonly planModeEnabled?: boolean;
+  /**
+   * Device-local mirror of the web `sidebarThreadListSortOrder` setting:
+   * how the flat thread list orders its active block. Undefined means the
+   * shipped creation order.
+   */
+  readonly threadListSortOrder?: SidebarThreadListSortOrder;
 }
 
 export class MobilePreferencesLoadError extends Schema.TaggedErrorClass<MobilePreferencesLoadError>()(
@@ -100,6 +106,7 @@ function sanitizePreferences(parsed: Preferences): Preferences {
     autoSettleOnMerge?: boolean;
     legacyThreadListEnabled?: boolean;
     planModeEnabled?: boolean;
+    threadListSortOrder?: SidebarThreadListSortOrder;
   } = {};
 
   if (typeof parsed.liveActivitiesEnabled === "boolean") {
@@ -169,6 +176,12 @@ function sanitizePreferences(parsed: Preferences): Preferences {
   }
   if (typeof parsed.planModeEnabled === "boolean") {
     preferences.planModeEnabled = parsed.planModeEnabled;
+  }
+  if (
+    parsed.threadListSortOrder === "created_at" ||
+    parsed.threadListSortOrder === "last_activity"
+  ) {
+    preferences.threadListSortOrder = parsed.threadListSortOrder;
   }
   return preferences;
 }

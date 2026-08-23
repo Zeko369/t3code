@@ -784,28 +784,66 @@ describe("searchSidebarThreadsByTitle", () => {
 });
 
 describe("sortThreadsForSidebar", () => {
-  const sortable = (input: { id: string; createdAt: string }) => ({
-    id: input.id,
-    createdAt: input.createdAt,
-  });
+  const sortable = (input: {
+    id: string;
+    createdAt: string;
+    latestUserMessageAt?: string;
+    latestTurn?: { completedAt?: string };
+  }) => input;
 
   it("orders by creation time, newest first, ignoring activity", () => {
-    const sorted = sortThreadsForSidebar([
-      sortable({ id: "oldest", createdAt: "2026-03-09T08:00:00.000Z" }),
-      sortable({ id: "newest", createdAt: "2026-03-09T12:00:00.000Z" }),
-      sortable({ id: "middle", createdAt: "2026-03-09T10:00:00.000Z" }),
-    ]);
+    const sorted = sortThreadsForSidebar(
+      [
+        sortable({
+          id: "oldest",
+          createdAt: "2026-03-09T08:00:00.000Z",
+          latestUserMessageAt: "2026-03-09T23:00:00.000Z",
+        }),
+        sortable({ id: "newest", createdAt: "2026-03-09T12:00:00.000Z" }),
+        sortable({ id: "middle", createdAt: "2026-03-09T10:00:00.000Z" }),
+      ],
+      "created_at",
+    );
 
     expect(sorted.map((thread) => thread.id)).toEqual(["newest", "middle", "oldest"]);
   });
 
   it("breaks creation-time ties by id so the order is stable", () => {
-    const sorted = sortThreadsForSidebar([
-      sortable({ id: "b", createdAt: "2026-03-09T10:00:00.000Z" }),
-      sortable({ id: "a", createdAt: "2026-03-09T10:00:00.000Z" }),
-    ]);
+    const sorted = sortThreadsForSidebar(
+      [
+        sortable({ id: "b", createdAt: "2026-03-09T10:00:00.000Z" }),
+        sortable({ id: "a", createdAt: "2026-03-09T10:00:00.000Z" }),
+      ],
+      "created_at",
+    );
 
     expect(sorted.map((thread) => thread.id)).toEqual(["a", "b"]);
+  });
+
+  it("orders by last activity when the user opts in, counting agent turns", () => {
+    const sorted = sortThreadsForSidebar(
+      [
+        sortable({
+          id: "opened-last",
+          createdAt: "2026-03-09T12:00:00.000Z",
+          latestUserMessageAt: "2026-03-09T12:00:00.000Z",
+        }),
+        sortable({
+          id: "agent-finished-last",
+          createdAt: "2026-03-09T08:00:00.000Z",
+          latestUserMessageAt: "2026-03-09T09:00:00.000Z",
+          latestTurn: { completedAt: "2026-03-09T14:00:00.000Z" },
+        }),
+        sortable({ id: "untouched", createdAt: "2026-03-09T10:00:00.000Z" }),
+      ],
+      "last_activity",
+    );
+
+    expect(sorted.map((thread) => thread.id)).toEqual([
+      "agent-finished-last",
+      "opened-last",
+      "untouched",
+    ]);
   });
 });
 

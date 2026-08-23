@@ -12,6 +12,17 @@ If reordering is unavailable for one environment, update the T3 Code server runn
 environment. Older servers can still pin and unpin threads, but do not understand synced ordering;
 their pinned threads keep the default newest-first order below the ones you have arranged.
 
+## Thread order
+
+Threads are listed in the order you opened them, newest first, and a thread keeps its place while
+you work — nothing jumps around under the cursor. To follow recent activity instead, open the sort
+menu next to the project filter and choose **Last activity**. Threads then move to the top whenever
+they are touched, by you or by the agent finishing a turn.
+
+On mobile the same choice lives in the thread list's filter menu. The setting is per device on
+mobile and follows your client settings on web and desktop. Pinned threads keep the order you
+arranged them in either way, and the settled section always lists the most recent first.
+
 ## Environment artwork
 
 Dev and Nightly environments can identify themselves with artwork at the top of the sidebar and in

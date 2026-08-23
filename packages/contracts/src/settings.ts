@@ -38,6 +38,17 @@ export const SidebarThreadSortOrder = Schema.Literals(["updated_at", "created_at
 export type SidebarThreadSortOrder = typeof SidebarThreadSortOrder.Type;
 export const DEFAULT_SIDEBAR_THREAD_SORT_ORDER: SidebarThreadSortOrder = "updated_at";
 
+/**
+ * Ordering of the default sidebar's flat thread list, separate from the
+ * legacy sidebar's per-project `sidebarThreadSortOrder`. The default keeps a
+ * row in its slot from open until it settles, so the list only moves at
+ * lifecycle transitions; `last_activity` opts into recency instead, floating
+ * whichever thread was touched last — by the user or the agent — to the top.
+ */
+export const SidebarThreadListSortOrder = Schema.Literals(["created_at", "last_activity"]);
+export type SidebarThreadListSortOrder = typeof SidebarThreadListSortOrder.Type;
+export const DEFAULT_SIDEBAR_THREAD_LIST_SORT_ORDER: SidebarThreadListSortOrder = "created_at";
+
 export const SidebarProjectGroupingMode = Schema.Literals([
   "repository",
   "repository_path",
@@ -246,6 +257,9 @@ export const ClientSettingsSchema = Schema.Struct({
   ),
   sidebarThreadSortOrder: SidebarThreadSortOrder.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_SORT_ORDER)),
+  ),
+  sidebarThreadListSortOrder: SidebarThreadListSortOrder.pipe(
+    Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_LIST_SORT_ORDER)),
   ),
   sidebarThreadPreviewCount: SidebarThreadPreviewCount.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_THREAD_PREVIEW_COUNT)),
@@ -922,6 +936,7 @@ export const ClientSettingsPatch = Schema.Struct({
   ),
   sidebarProjectSortOrder: Schema.optionalKey(SidebarProjectSortOrder),
   sidebarThreadSortOrder: Schema.optionalKey(SidebarThreadSortOrder),
+  sidebarThreadListSortOrder: Schema.optionalKey(SidebarThreadListSortOrder),
   sidebarThreadPreviewCount: Schema.optionalKey(SidebarThreadPreviewCount),
   timestampFormat: Schema.optionalKey(TimestampFormat),
   wordWrap: Schema.optionalKey(Schema.Boolean),
